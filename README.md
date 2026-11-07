@@ -1,5 +1,9 @@
 # Curfew
 
+I had a hard time going to sleep. Midnight would come and go, and I'd still be sitting around on my phone or my
+laptop at 3 or 4 am. So I made this to make me sleep: at bedtime both lock, and getting back in is more annoying
+than just going to bed.
+
 A hard bedtime lock for an Android phone and a Mac. Every night, on a schedule you pick, both lock until morning.
 One tap on SLEEP (phone, Mac, or an iPhone Shortcut) locks both right now. You run your own tiny server on
 Cloudflare, so nothing about your nights goes anywhere else. What happens at night:
