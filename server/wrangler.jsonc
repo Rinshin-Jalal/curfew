@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sleep-sync",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-15",
+  "ai": { "binding": "AI" }, // the emergency judge (open models, no API key)
+  "durable_objects": { "bindings": [{ "name": "SLEEP", "class_name": "SleepRoom" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["SleepRoom"] }]
+  // secret (wrangler secret put / .dev.vars): APP_TOKEN
+}

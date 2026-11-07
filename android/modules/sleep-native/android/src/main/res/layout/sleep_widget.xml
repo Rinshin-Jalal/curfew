@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/sleep_widget"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="#000000"
+  android:fontFamily="sans-serif-black"
+  android:gravity="center"
+  android:text="Sleep now"
+  android:textColor="#FF621E"
+  android:textSize="20sp" />

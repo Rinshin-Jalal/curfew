@@ -1,0 +1,16 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.noexcuselabs'
+version = '1.0.0'
+
+android {
+  namespace "com.noexcuselabs.sleepcore"
+}
+
+dependencies {
+  implementation "com.squareup.okhttp3:okhttp:4.9.2" // same version React Native already ships
+  testImplementation "junit:junit:4.13.2"
+}

@@ -1,0 +1,3 @@
+# copy to .dev.vars for `wrangler dev`; `wrangler secret put APP_TOKEN` for the deployed worker
+APP_TOKEN=change-me-long-random-string
+

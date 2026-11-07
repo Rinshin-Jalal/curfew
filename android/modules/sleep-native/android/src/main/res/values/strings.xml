@@ -1,0 +1,3 @@
+<resources>
+  <string name="sleep_a11y_description">Curfew watches which app comes to the front during your lock window and sends you home if it isn\'t on your allowlist. It reads nothing on screen and sends nothing anywhere.</string>
+</resources>
