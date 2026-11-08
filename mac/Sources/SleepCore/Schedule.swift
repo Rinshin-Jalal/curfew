@@ -19,6 +19,7 @@ public struct SleepState: Codable, Equatable {
   public var earlyUnlocks: Int
   public var emergencyUnlocks: Int?
   public var breakUntil: String? // nothing enforced until then; the running lock is simply still there after
+  public var breakApps: [String]? // set by the judge: the break opens only these. The Mac opens only if "computer" is one
   public var breaks: [String]? // starts of recent phrase breaks, to cap them per night
   public var phrase: String? // shown on the lock screen: you don't have to remember it, you have to type it
   public var phraseSalt: String?
@@ -88,9 +89,15 @@ public enum Schedule {
     return [manual, windowAt(st.schedule, cal, now)?.end].compactMap { $0 }.max()
   }
 
+  /// On a break here: any break, unless the judge opened only some phone apps and not the computer.
+  public static func onBreak(_ st: SleepState, _ now: Date) -> Bool {
+    guard let b = ISO.parse(st.breakUntil), b > now else { return false }
+    return st.breakApps.map { $0.contains("computer") } ?? true
+  }
+
   /// Locked until when, or nil: the lock underway, unless you're on a break from it.
   public static func lockedUntil(_ st: SleepState, _ cal: Calendar, _ now: Date) -> Date? {
-    if let b = ISO.parse(st.breakUntil), b > now { return nil }
+    if onBreak(st, now) { return nil }
     return lockUnderway(st, cal, now)
   }
 

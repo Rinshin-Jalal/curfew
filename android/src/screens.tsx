@@ -25,11 +25,13 @@ export function Home({ snap, go }: { snap: Snapshot; go: (r: Route) => void }) {
   // the headline is the next thing that happens, the subhead is when and for how long
   const headline = !armed ? "Curfew is off"
     : onBreak ? `On a break until ${hhmm(snap.breakEnd!)}`
+    : snap.appBreak ? `${snap.appBreak.labels.join(", ")} open till ${hhmm(snap.appBreak.until)}`
     : lockedUntil ? `Lights on at ${hhmm(lockedUntil)}`
     : nextStart ? `Lights out at ${hhmm(nextStart)}`
     : "No nights scheduled";
   const sub = !armed ? "Pick your nights and save. From then on your phone and Mac lock on schedule"
     : onBreak ? `In ${fromNow(snap.breakEnd!)} the lock comes back by itself. ${snap.breaksLeft ? `${snap.breaksLeft} break${snap.breaksLeft > 1 ? "s" : ""} left tonight` : "After this, only the judge can let you out"}`
+    : snap.appBreak && lockedUntil ? `The judge opened just that. Everything else stays locked for ${fromNow(lockedUntil)}`
     : lockedUntil ? `Your phone and Mac are locked for ${fromNow(lockedUntil)}. ${snap.breaksLeft ? `${snap.breaksLeft} break${snap.breaksLeft > 1 ? "s" : ""} left tonight` : "Both breaks are used tonight, so only the judge can let you out"}`
     : nextStart && s ? `In ${fromNow(nextStart)}, your phone and Mac lock until ${s.end}`
     : "Pick some nights in Schedule";
@@ -218,7 +220,7 @@ export function Unlock({ snap, back }: { snap: Snapshot; back: () => void }) {
   const at = typo(p, w);
   const reply = verdict ? (
     <View style={{ gap: 4 }}>
-      <T medium color={verdict.approved ? C.ink : C.bad}>{verdict.approved ? `Approved for ${verdict.minutes} minutes` : "Denied"}</T>
+      <T medium color={verdict.approved ? C.ink : C.bad}>{verdict.approved ? `${verdict.labels?.length ? `${verdict.labels.join(", ")} open` : "Approved"} for ${verdict.minutes} minutes` : "Denied"}</T>
       <T color={C.soft}>{verdict.reply}</T>
     </View>
   ) : null;
@@ -248,9 +250,9 @@ export function Unlock({ snap, back }: { snap: Snapshot; back: () => void }) {
   return (
     <Screen title="Ask the judge" onBack={back}>
       <T size={18} color={C.soft} style={{ lineHeight: 28 }}>
-        {`Both breaks are used tonight, so the judge decides. The lock stays until ${hhmm(snap.lockedUntil)} unless it lets you out. Calls, texts and maps still work.`}
+        {`Both breaks are used tonight, so the judge decides. The lock stays until ${hhmm(snap.lockedUntil)} unless it lets you out. Calls, texts, maps and the clock still work.`}
       </T>
-      <Section note="Say what's happening and why it can't wait. It hears 3 asks a night, 10 minutes apart. A yes is a short break that doesn't count as an early unlock.">
+      <Section note="Say what's happening and why it can't wait. It hears 3 asks a night, 10 minutes apart. A yes opens just the apps it takes, for a short while, and doesn't count as an early unlock.">
         <Field value={why} onChangeText={setWhy} multiline placeholder="What's going on" style={{ minHeight: 88, textAlignVertical: "top" }} />
         <Key label={asking ? "Asking the judge" : "Ask the judge"} disabled={asking || why.trim().length < 10} onPress={async () => {
           setAsking(true);

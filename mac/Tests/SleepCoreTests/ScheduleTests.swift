@@ -44,6 +44,11 @@ final class ScheduleTests: XCTestCase {
     XCTAssertNil(Schedule.lockedUntil(br, utc, two))
     XCTAssertEqual(Schedule.lockedUntil(br, utc, ISO.parse("2026-07-16T02:16:00.000Z")!), ISO.parse("2026-07-16T06:00:00.000Z"))
     XCTAssertEqual(Schedule.nextEdge(br, utc, two), ISO.parse("2026-07-16T02:15:00.000Z"))
+    // a judge break for phone apps keeps the Mac locked; one that names the computer opens it
+    br.breakApps = ["com.amazon.kindle"]
+    XCTAssertEqual(Schedule.lockedUntil(br, utc, two), t("2026-07-16T06:00:00Z"))
+    br.breakApps = ["com.amazon.kindle", "computer"]
+    XCTAssertNil(Schedule.lockedUntil(br, utc, two))
     XCTAssertEqual(Schedule.lockedUntil(state("manual", "2026-07-15T23:00:00.000Z"), utc, t("2026-07-15T15:00:00Z")), t("2026-07-15T23:00:00Z"))
   }
 

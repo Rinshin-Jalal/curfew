@@ -101,7 +101,7 @@ object SleepCore {
       val days = sch.getJSONArray("days").let { a -> (0 until a.length()).map { a.getInt(it) }.toSet() }
       Rules(s.optString("mode", "scheduled"), s.str("activeUntil")?.let(Instant::parse),
         Sched(LocalTime.parse(sch.getString("start")), LocalTime.parse(sch.getString("end")), days), s.str("phraseHash"),
-        s.str("breakUntil")?.let(Instant::parse))
+        s.str("breakUntil")?.let(Instant::parse), s.optJSONArray("breakApps")?.let { a -> (0 until a.length()).map { a.getString(it) }.toSet() })
     }.getOrNull()
     if (save) prefs.edit().putString("state", s.toString()).apply()
   }
@@ -118,7 +118,7 @@ object SleepCore {
     val r = rules?.takeIf { it.phraseHash != null } ?: return // unarmed: a tap now would only turn into a surprise lock later
     var until = Schedule.tapUntil(r.sched, zone, Instant.now())
     if (r.mode == "manual" && r.activeUntil != null && r.activeUntil > until) until = r.activeUntil // never shortens
-    edit("mode" to "manual", "activeUntil" to until.toString(), "breakUntil" to null) // and it ends a break
+    edit("mode" to "manual", "activeUntil" to until.toString(), "breakUntil" to null, "breakApps" to null) // and it ends a break
     setPending("tap", until.toString())
     apply()
     flush()
@@ -141,7 +141,7 @@ object SleepCore {
     if (breaksTonight() >= Schedule.BREAKS_PER_NIGHT) return "That's both breaks for tonight"
     val now = Instant.now()
     val breaks = JSONArray().also { b -> state.optJSONArray("breaks")?.let { a -> for (i in maxOf(0, a.length() - 9) until a.length()) b.put(a.getString(i)) } }.put(now.toString())
-    edit("breakUntil" to now.plus(Duration.ofMinutes(Schedule.BREAK_MIN)).toString(), "breaks" to breaks,
+    edit("breakUntil" to now.plus(Duration.ofMinutes(Schedule.BREAK_MIN)).toString(), "breakApps" to null, "breaks" to breaks,
       "earlyUnlocks" to state.optInt("earlyUnlocks") + 1)
     setPending("unlock", "")
     apply()
@@ -165,7 +165,10 @@ object SleepCore {
   }
 
   /** Emergency: the AI judge on the server decides. Approval comes back with the new state, which both devices adopt. */
-  fun appeal(reason: String, done: (Boolean, String) -> Unit) = call("POST", "/sleep/appeal", JSONObject().put("reason", reason)) { code, text ->
+  // the judge picks which of these a yes opens; the open ones already work, so it leaves them out
+  fun appeal(reason: String, done: (Boolean, String) -> Unit) = call("POST", "/sleep/appeal", JSONObject().put("reason", reason)
+    .put("apps", JSONArray(launcherApps().map { JSONObject().put("pkg", it.first).put("label", it.second) }))
+    .put("open", JSONArray((essentials + allowlist()).distinct()))) { code, text ->
     val j = runCatching { JSONObject(text) }.getOrNull()
     if (code == 200 && j != null) {
       j.optJSONObject("state")?.let { adopt(it.toString()) }
@@ -280,7 +283,8 @@ object SleepCore {
   // keyboard, status bar, shade, power menu: always usable, and never "the app in front"
   private fun isChrome(pkg: String) = pkg == "com.android.systemui" || pkg == "android" || pkg == ime()
   private fun ime() = Settings.Secure.getString(app.contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)?.substringBefore('/')
-  private val essentials by lazy { setOfNotNull(app.packageName, "com.android.phone", "com.android.server.telecom", dialer()) }
+  // the clock too: an alarm is how you get up, so it never needs a break or the judge
+  private val essentials by lazy { setOfNotNull(app.packageName, "com.android.phone", "com.android.server.telecom", dialer(), resolve(Intent(AlarmClock.ACTION_SHOW_ALARMS))) }
   private val launcher by lazy { resolve(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)) }
   val defaults by lazy {
     listOfNotNull(dialer(), Telephony.Sms.getDefaultSmsPackage(app), resolve(Intent(AlarmClock.ACTION_SHOW_ALARMS)),
@@ -296,7 +300,20 @@ object SleepCore {
     return (0 until a.length()).map { a.getString(it) }.ifEmpty { defaults }
   }
 
-  fun allowed(pkg: String) = isChrome(pkg) || pkg in essentials || pkg in allowlist()
+  fun allowed(pkg: String) = isChrome(pkg) || pkg in essentials || pkg in allowlist() || pkg in breakApps()
+
+  /** What a judge break opens right now ("computer" is the Mac's). Empty when none is running. */
+  fun breakApps(now: Instant = Instant.now()) = rules?.let { Schedule.appBreak(it, now) } ?: emptySet()
+
+  fun launcherApps(): List<Pair<String, String>> {
+    val pm = app.packageManager
+    return pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
+      .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
+      .distinctBy { it.first }.sortedBy { it.second.lowercase() }
+  }
+
+  private fun label(pkg: String) = if (pkg == "computer") "your Mac"
+    else runCatching { app.packageManager.let { pm -> pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() } }.getOrDefault(pkg)
 
   private fun arm() {
     val am = app.getSystemService(AlarmManager::class.java)
@@ -339,6 +356,9 @@ object SleepCore {
     .put("lockedUntil", lockedUntil()?.toString() ?: JSONObject.NULL)
     .put("nextStart", nextStart()?.toString() ?: JSONObject.NULL)
     .put("breakEnd", breakEnd()?.toString() ?: JSONObject.NULL)
+    .put("appBreak", breakApps().takeIf { it.isNotEmpty() }?.let { a ->
+      JSONObject().put("until", rules?.breakUntil.toString()).put("labels", JSONArray(a.map(::label)))
+    } ?: JSONObject.NULL)
     .put("tapUntil", rules?.let { Schedule.tapUntil(it.sched, zone, Instant.now()).toString() } ?: JSONObject.NULL)
     .put("breaksLeft", maxOf(0, Schedule.BREAKS_PER_NIGHT - breaksTonight()))
     .put("connected", connected)

@@ -2,7 +2,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { SleepState } from "../../shared/sleep.ts";
 import { emergency, initialState, localParts, lockedUntil, put, tap, unlock, type Put, appealBlocked, breaksTonight, BREAKS_PER_NIGHT, nightStart } from "./logic.ts";
-import { judge, type Appeal } from "./judge.ts";
+import { judge, overCap, phoneOf, type Appeal, type Phone } from "./judge.ts";
 
 export interface Env {
   SLEEP: DurableObjectNamespace<SleepRoom>;
@@ -63,12 +63,12 @@ export class SleepRoom extends DurableObject<Env> {
       if (!next) return json({ error: `That's both breaks for tonight. The lock stays until ${localParts(lockedUntil(st, st.tz, now)!, st.tz).time}.` }, 429);
       return json(await this.commit(next));
     }
-    if (path === "/sleep/appeal" && req.method === "POST") return this.appeal(st, String((await body()).reason ?? ""));
+    if (path === "/sleep/appeal" && req.method === "POST") { const b = await body(); return this.appeal(st, String(b.reason ?? ""), phoneOf(b)); }
     return json({ error: "not found" }, 404);
   }
 
   /** After both breaks, an open model on Workers AI decides if it's real. One ask per 10 minutes, 3 a night, and it sees the past week. */
-  async appeal(st: SleepState, raw: string) {
+  async appeal(st: SleepState, raw: string, phone?: Phone) {
     const now = Date.now();
     const lockEnds = lockedUntil(st, st.tz, now);
     if (!lockEnds) return json({ error: "Nothing is locked right now." }, 409);
@@ -81,14 +81,17 @@ export class SleepRoom extends DurableObject<Env> {
     const week = log.filter((a) => now - a.at < 7 * 24 * 3600_000);
     let v;
     try {
-      v = await judge(this.env.AI, reason, week, now, lockEnds, st.tz);
+      v = await judge(this.env.AI, reason, week, now, lockEnds, st.tz, phone);
     } catch (e) {
       console.error("judge failed", e);
       return json({ error: "The judge didn't answer. Try again in a minute." }, 502);
     }
+    const over = v.approved && overCap(log, v.kind, nightStart(st.tz, now), st.tz);
+    if (over) v = { ...v, approved: false, minutes: 0, apps: null, reply: over };
     await this.ctx.storage.put("appeals", [...log, { at: now, reason, ...v }].slice(-30));
     if (!v.approved) return json(v);
-    return json({ ...v, state: await this.commit(emergency(st, now, v.minutes)) });
+    const labels = v.apps?.map((p) => (p === "computer" ? "your Mac" : phone?.apps.find((a) => a.pkg === p)?.label ?? p));
+    return json({ ...v, labels, state: await this.commit(emergency(st, now, v.minutes, v.apps)) });
   }
 
   webSocketMessage() { /* nothing but pings, which never get here */ }

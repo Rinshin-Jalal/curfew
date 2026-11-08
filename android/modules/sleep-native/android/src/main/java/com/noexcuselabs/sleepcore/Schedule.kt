@@ -17,6 +17,7 @@ data class Rules(
   val sched: Sched,
   val phraseHash: String?,
   val breakUntil: Instant? = null, // nothing enforced until then; the running lock is simply still there after
+  val breakApps: Set<String>? = null, // set by the judge: the break opens only these. null = everything
 )
 
 data class Window(val start: Instant, val end: Instant)
@@ -59,7 +60,10 @@ object Schedule {
 
   /** Locked until when, or null: the lock underway, unless you're on a break from it. */
   fun lockedUntil(r: Rules, zone: ZoneId, now: Instant): Instant? =
-    if (r.breakUntil != null && r.breakUntil > now) null else lockUnderway(r, zone, now)
+    if (r.breakUntil != null && r.breakUntil > now && r.breakApps == null) null else lockUnderway(r, zone, now)
+
+  /** The apps a judge break opens right now, if one is running. */
+  fun appBreak(r: Rules, now: Instant): Set<String> = r.breakApps?.takeIf { r.breakUntil != null && r.breakUntil > now } ?: emptySet()
 
   /** SLEEP tapped: the coming window end if it's within 12h, else 8h from now. */
   fun tapUntil(s: Sched, zone: ZoneId, now: Instant): Instant {

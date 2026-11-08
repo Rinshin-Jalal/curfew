@@ -51,11 +51,7 @@ class SleepModule : Module() {
     Function("takeRoute") { SleepCore.pendingRoute.also { SleepCore.pendingRoute = null } }
 
     Function("apps") {
-      val pm = ctx.packageManager
-      val apps = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
-        .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
-        .distinctBy { it.first }.sortedBy { it.second.lowercase() }
-      JSONArray(apps.map { JSONObject().put("pkg", it.first).put("label", it.second) }).toString()
+      JSONArray(SleepCore.launcherApps().map { JSONObject().put("pkg", it.first).put("label", it.second) }).toString()
     }
 
     Function("permissions") {

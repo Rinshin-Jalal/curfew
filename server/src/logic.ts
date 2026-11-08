@@ -76,7 +76,8 @@ export function lockedUntil(st: SleepState, tz: string, now: number): number | n
   return onBreak(st, now) ? null : lockUnderway(st, tz, now);
 }
 
-export const onBreak = (st: SleepState, now: number) => !!st.breakUntil && Date.parse(st.breakUntil) > now;
+/** On a break from everything. A judge break that opens only some apps (breakApps) leaves the lock on for the rest. */
+export const onBreak = (st: SleepState, now: number) => !!st.breakUntil && Date.parse(st.breakUntil) > now && !st.breakApps;
 
 /** SLEEP tapped without an explicit end: the coming 06:00 if it's within 12h, else 8h from now. */
 export function tapUntil(s: Schedule, tz: string, now: number) {
@@ -118,8 +119,8 @@ export const BREAK_MIN = 15; // a phrase unlock is a break this long
 export const BREAKS_PER_NIGHT = 2;
 
 /** The judge said yes: a break of that many minutes, then the lock is back. Doesn't touch the shame counter. */
-export function emergency(st: SleepState, now: number, minutes: number): SleepState {
-  return { ...st, breakUntil: iso(now + minutes * 60_000), emergencyUnlocks: (st.emergencyUnlocks ?? 0) + 1, updatedAt: iso(now) };
+export function emergency(st: SleepState, now: number, minutes: number, apps: string[] | null = null): SleepState {
+  return { ...st, breakUntil: iso(now + minutes * 60_000), breakApps: apps, emergencyUnlocks: (st.emergencyUnlocks ?? 0) + 1, updatedAt: iso(now) };
 }
 
 /** Phrase breaks started in the last 12 hours. */
@@ -132,14 +133,14 @@ export function tap(st: SleepState, now: number, requested?: unknown): SleepStat
   let until = r > now && r <= now + DAY ? r : tapUntil(st.schedule, st.tz, now);
   // a tap never shortens a lock that's already running, and it ends a break
   if (st.mode === "manual" && st.activeUntil) until = Math.max(until, Date.parse(st.activeUntil));
-  return { ...st, mode: "manual", activeUntil: iso(until), breakUntil: null, updatedAt: iso(now) };
+  return { ...st, mode: "manual", activeUntil: iso(until), breakUntil: null, breakApps: null, updatedAt: iso(now) };
 }
 
 /** Call only after the phrase checked out. A 15 minute break that counts, at most 2 a night; null when they're used up. */
 export function unlock(st: SleepState, now: number): SleepState | null {
   if (breaksTonight(st, now) >= BREAKS_PER_NIGHT) return null;
   return {
-    ...st, breakUntil: iso(now + BREAK_MIN * 60_000), breaks: [...(st.breaks ?? []), iso(now)].slice(-10),
+    ...st, breakUntil: iso(now + BREAK_MIN * 60_000), breakApps: null, breaks: [...(st.breaks ?? []), iso(now)].slice(-10),
     earlyUnlocks: st.earlyUnlocks + 1, updatedAt: iso(now),
   };
 }
@@ -155,7 +156,7 @@ export async function phraseOk(st: SleepState, phrase: unknown) {
 
 export const MIN_PHRASE = 40;
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
-const ID = /^[A-Za-z0-9_.-]{1,200}$/;
+export const ID = /^[A-Za-z0-9_.-]{1,200}$/;
 
 export type Put = { schedule?: Schedule; allowlist?: string[]; tz?: string; phrase?: string; currentPhrase?: string };
 

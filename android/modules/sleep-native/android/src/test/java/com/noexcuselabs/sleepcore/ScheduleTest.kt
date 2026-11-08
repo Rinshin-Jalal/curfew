@@ -44,6 +44,12 @@ class ScheduleTest {
     val br = rules().copy(breakUntil = t("2026-07-16T02:15:00Z"))
     assertNull(Schedule.lockedUntil(br, utc, two))
     assertEquals(t("2026-07-16T06:00:00Z"), Schedule.lockedUntil(br, utc, t("2026-07-16T02:16:00Z")))
+    // a judge break for some apps: still locked for the rest, and those apps only until it ends
+    val kindle = br.copy(breakApps = setOf("com.amazon.kindle"))
+    assertEquals(t("2026-07-16T06:00:00Z"), Schedule.lockedUntil(kindle, utc, two))
+    assertEquals(setOf("com.amazon.kindle"), Schedule.appBreak(kindle, two))
+    assertEquals(emptySet<String>(), Schedule.appBreak(kindle, t("2026-07-16T02:16:00Z")))
+    assertEquals(emptySet<String>(), Schedule.appBreak(br, two))
     assertEquals(t("2026-07-16T02:15:00Z"), Schedule.nextEdge(br, utc, two))
     assertEquals(t("2026-07-15T23:00:00Z"), Schedule.lockedUntil(rules("manual", "2026-07-15T23:00:00Z"), utc, t("2026-07-15T15:00:00Z")))
   }

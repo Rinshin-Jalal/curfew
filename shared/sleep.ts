@@ -21,6 +21,8 @@ export type SleepState = {
   // Unlocking is a break, never the rest of the night: until breakUntil nothing is enforced, then whatever lock
   // was running (a tap or the night's window) is simply still there.
   breakUntil?: string | null; // ISO
+  // set by the judge: the break opens only these (Android package names, "computer" for the Mac). null = everything
+  breakApps?: string[] | null;
   breaks?: string[]; // ISO starts of recent phrase breaks, to cap them per night
   phrase?: string | null; // shown on every unlock screen: you don't have to remember it, you have to type it
   phraseSalt: string | null; // hex; devices check sha256(salt + phrase) offline

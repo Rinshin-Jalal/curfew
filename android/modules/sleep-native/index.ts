@@ -9,6 +9,7 @@ export type Snapshot = {
   lockedUntil: string | null;
   nextStart: string | null;
   breakEnd: string | null; // on a break from a lock that comes back after it
+  appBreak: { until: string; labels: string[] } | null; // the judge opened only these; the rest stays locked
   tapUntil: string | null; // where Sleep now would lock until
   breaksLeft: number; // phrase breaks left tonight
   connected: boolean;
@@ -19,7 +20,7 @@ export type Snapshot = {
 
 export type Perm = "accessibility" | "overlay" | "usage" | "admin" | "notifications" | "quiet" | "exactAlarm" | "battery";
 
-export type Verdict = { approved: boolean; minutes: number; reply: string };
+export type Verdict = { approved: boolean; minutes: number; reply: string; labels?: string[] }; // labels: what a yes opened
 
 export type Update ={ schedule?: Schedule; allowlist?: string[]; phrase?: string; currentPhrase?: string };
 

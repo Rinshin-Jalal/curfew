@@ -151,7 +151,7 @@ final class App: NSObject, NSApplicationDelegate, NSMenuDelegate {
     let until = s.flatMap { Schedule.lockedUntil($0, .autoupdatingCurrent, now) }
     let next = s.flatMap { $0.phraseHash == nil ? nil : Schedule.nextStart($0.schedule, .autoupdatingCurrent, now) }
     // during a break "Next lock" would name tomorrow's start, as if tonight were over
-    let breakEnd = s.flatMap { st in ISO.parse(st.breakUntil).flatMap { $0 > now && Schedule.lockUnderway(st, .autoupdatingCurrent, now) != nil ? $0 : nil } }
+    let breakEnd = s.flatMap { st in Schedule.onBreak(st, now) && Schedule.lockUnderway(st, .autoupdatingCurrent, now) != nil ? ISO.parse(st.breakUntil) : nil }
     let line = s?.phraseHash == nil ? "Not armed: set a phrase in the phone app"
       : until.map { "Locked until \(hhmm($0))" } ?? breakEnd.map { "On a break until \(hhmm($0)), then locked again" }
       ?? next.map { "Next lock \(hhmm($0))" } ?? "No lock scheduled"

@@ -165,7 +165,7 @@ class OverlayView(ctx: Context) : FrameLayout(ctx) {
   private fun bindApps() {
     val pm = context.packageManager
     val dialer = context.getSystemService(TelecomManager::class.java)?.defaultDialerPackage // that's Emergency call
-    val list = SleepCore.allowlist().filter { it != context.packageName && it != dialer && pm.getLaunchIntentForPackage(it) != null }
+    val list = (SleepCore.allowlist() + SleepCore.breakApps()).distinct().filter { it != context.packageName && it != dialer && pm.getLaunchIntentForPackage(it) != null }
     if (list == appsShown) return
     appsShown = list
     apps.removeAllViews()

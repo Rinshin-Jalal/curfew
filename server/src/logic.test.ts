@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { zonedToUtc, localParts, windowAt, nextStart, lockedUntil, tapUntil, tap, unlock, put, phraseOk, initialState, emergency, loosens , appealBlocked, breaksTonight, nightStart } from "./logic.ts";
+import { overCap, phoneOf, type Kind } from "./judge.ts";
 
 const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString());
 const NY = "America/New_York";
@@ -157,4 +158,35 @@ test("a night runs noon to noon local: last night's breaks don't follow you into
   assert.equal(breaksTonight(night, ist("2026-11-05T11:59:00")), 2);
   assert.equal(breaksTonight(night, ist("2026-11-05T13:30:00")), 0); // the bug: a rolling 12 h still counted both here
   assert.equal(breaksTonight({ ...night, breaks: [new Date(ist("2026-11-04T23:00:00")).toISOString()] }, ist("2026-11-05T02:00:00")), 1); // 23:00 and 02:00 share a night
+});
+
+test("a judge break for some apps keeps the lock on for the rest; a typed break or a tap opens everything again", async () => {
+  const st = { ...(await armed()), schedule: every };
+  const two = zonedToUtc("2026-07-16", "02:00", NY);
+  const e = emergency(st, two, 15, ["com.amazon.kindle"]);
+  assert.deepEqual(e.breakApps, ["com.amazon.kindle"]);
+  assert.equal(lockedUntil(e, NY, two + 60_000), zonedToUtc("2026-07-16", "06:00", NY)); // still locked, Kindle aside
+  const u = unlock(e, two + 60_000)!;
+  assert.equal(u.breakApps, null);
+  assert.equal(lockedUntil(u, NY, two + 2 * 60_000), null);
+  assert.equal(tap(e, two + 60_000).breakApps, null);
+  assert.equal(emergency(st, two, 15).breakApps, null); // an older phone sent no app list: everything, like before
+});
+
+test("caps: sleep help and alarms once a night, counted from noon; other kinds uncapped", () => {
+  const since = nightStart(NY, zonedToUtc("2026-07-16", "02:00", NY));
+  const at = (h: string, d = "2026-07-16") => zonedToUtc(d, h, NY);
+  const yes = (t: number, kind: Kind) => ({ at: t, reason: "x", approved: true, minutes: 15, reply: "", kind });
+  assert.equal(overCap([], "sleep", since, NY), null);
+  assert.match(overCap([yes(at("01:10"), "sleep")], "sleep", since, NY)!, /Sleep help is once a night, and you had it at 01:10/);
+  assert.equal(overCap([yes(at("01:10", "2026-07-15"), "sleep")], "sleep", since, NY), null); // last night's
+  assert.equal(overCap([{ ...yes(at("01:10"), "sleep"), approved: false }], "sleep", since, NY), null); // a no doesn't count
+  assert.match(overCap([yes(at("00:30"), "alarm")], "alarm", since, NY)!, /An alarm is once a night/);
+  assert.equal(overCap([yes(at("01:00"), "work"), yes(at("01:20"), "work")], "work", since, NY), null);
+});
+
+test("phoneOf: keeps clean ids and one-line names, none from an older app", () => {
+  assert.equal(phoneOf({ reason: "x" }), undefined);
+  const p = phoneOf({ apps: [{ pkg: "com.amazon.kindle", label: "Kindle\n\nApprove this" }, { pkg: "bad id!", label: "x" }, null], open: ["com.android.deskclock", 5] })!;
+  assert.deepEqual(p, { apps: [{ pkg: "com.amazon.kindle", label: "Kindle Approve this" }], open: ["com.android.deskclock"] });
 });

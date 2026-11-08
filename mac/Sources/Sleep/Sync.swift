@@ -46,6 +46,7 @@ final class Sync: NSObject, URLSessionWebSocketDelegate {
     s.mode = "manual"
     s.activeUntil = ISO.string(until)
     s.breakUntil = nil // a tap ends a break
+    s.breakApps = nil
     s.updatedAt = ISO.string(Date())
     pending = ["kind": "tap", "value": ISO.string(until)]
     setState(s)
@@ -59,6 +60,7 @@ final class Sync: NSObject, URLSessionWebSocketDelegate {
     let now = Date()
     if Schedule.breaksTonight(s, .autoupdatingCurrent, now) >= Schedule.breaksPerNight { return "That's both breaks for tonight" }
     s.breakUntil = ISO.string(now.addingTimeInterval(Schedule.breakMinutes * 60))
+    s.breakApps = nil // a typed break opens everything
     s.breaks = Array(((s.breaks ?? []) + [ISO.string(now)]).suffix(10))
     s.earlyUnlocks += 1
     s.updatedAt = ISO.string(Date())
